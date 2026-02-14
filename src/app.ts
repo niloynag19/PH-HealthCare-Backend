@@ -1,6 +1,8 @@
 import express, { Application, Request, Response } from "express";
 import { prisma } from "./app/lib/prisma";
 import { IndexRoutes } from "./routes";
+import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
+import { notFound } from "./app/middleware/notFound";
 
 const app: Application = express();
 
@@ -22,5 +24,9 @@ app.get("/",async (req:Request, res:Response) => {
     data:specialty
   })
 });
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+app.use(globalErrorHandler); 
+app.use(notFound);
 
 export default app;
