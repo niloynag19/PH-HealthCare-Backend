@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // import { Role, User } from "../../../generated/prisma/client";
 import status from "http-status";
 import AppError from "../../errorHelpers/AppError";
@@ -9,6 +10,7 @@ import { jwtUtils } from "../../utils/jwt";
 import { envVars } from "../../../config/env";
 import { JwtPayload } from "jsonwebtoken";
 import { IChangePasswordPayload, LoginUserPayload, RegisterPatientPayload } from "./auth.interface";
+import { UserStatus } from "../../../generated/prisma/enums";
 
 
 const registerPatient = async (payload: RegisterPatientPayload) => {
@@ -237,6 +239,17 @@ const changePassword = async (payload: IChangePasswordPayload, sessionToken: str
         })
     })
 
+    if (session.user.needPasswordChange) {
+        await prisma.user.update({
+            where: {
+                id: session.user.id,
+            },
+            data: {
+                needPasswordChange: false
+            }
+        })
+    }
+
     const accessToken = tokenUtils.getAccessToken({
         userId: session.user.id,
         email: session.user.email,
@@ -272,6 +285,129 @@ const logoutUser = async (sessionToken: string) => {
     return result;
 }
 
+const verifyEmail = async (email: string, otp: string) => {
+    const result = await auth.api.verifyEmailOTP({
+        body: {
+            email,
+            otp
+        }
+    })
+    if (result.status && !result.user.emailVerified) {
+        await prisma.user.update({
+            where: {
+                email
+            },
+            data: {
+                emailVerified: true,
+            }
+        })
+    }
+}
+
+const forgetPassword = async (email: string) => {
+    const isUserExists = await prisma.user.findUnique({
+        where: {
+            email,
+        }
+    })
+
+    if (!isUserExists) {
+        throw new AppError(status.NOT_FOUND, "User not found")
+    }
+    if (!isUserExists.emailVerified) {
+        throw new AppError(status.BAD_REQUEST, "Email not verified")
+    }
+
+    if (isUserExists.isDeleted || isUserExists.status === UserStatus.DELETED) {
+        throw new AppError(status.NOT_FOUND, "User not found")
+    }
+
+    await auth.api.requestPasswordResetEmailOTP({
+        body: {
+            email,
+        }
+    })
+}
+
+const resetPassword = async (email: string, otp: string, newPassword: string) => {
+
+    const isUserExists = await prisma.user.findUnique({
+        where: {
+            email,
+        }
+    })
+
+    if (!isUserExists) {
+        throw new AppError(status.NOT_FOUND, "User not found")
+    }
+    if (!isUserExists.emailVerified) {
+        throw new AppError(status.BAD_REQUEST, "Email not verified")
+    }
+
+    if (isUserExists.isDeleted || isUserExists.status === UserStatus.DELETED) {
+        throw new AppError(status.NOT_FOUND, "User not found")
+    }
+
+    await auth.api.resetPasswordEmailOTP({
+        body: {
+            email,
+            otp,
+            password: newPassword
+        }
+    })
+
+    if (isUserExists.needPasswordChange) {
+        await prisma.user.update({
+            where: {
+                id: isUserExists.id,
+            },
+            data: {
+                needPasswordChange: false
+            }
+        })
+    }
+
+    await prisma.session.deleteMany({
+        where: {
+            userId: isUserExists.id,
+        }
+    })
+}
+
+const googleLoginSuccess = async (session: Record<string, any>) => {
+    const isPatientExists = await prisma.patient.findUnique({
+        where: {
+            userId: session.user.id,
+        }
+    })
+
+    if (!isPatientExists) {
+        await prisma.patient.create({
+            data: {
+                userId: session.user.id,
+                name: session.user.name,
+                email: session.user.email,
+            }
+        })
+    }
+
+    const accessToken = tokenUtils.getAccessToken({
+        userId: session.user.id,
+        role: session.user.role,
+        name: session.user.name,
+    })
+
+    const refreshToken = tokenUtils.getRefreshToken({
+        userId: session.user.id,
+        role: session.user.role,
+        name: session.user.name,
+    })
+
+    return{
+        accessToken,
+        refreshToken
+    }
+}
 export const AuthService = {
     registerPatient,
     loginUser,
@@ -279,4 +415,8 @@ export const AuthService = {
     getNewToken,
     changePassword,
     logoutUser,
+    verifyEmail,
+    forgetPassword,
+    resetPassword,
+    googleLoginSuccess
 }
