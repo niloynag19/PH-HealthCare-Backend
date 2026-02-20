@@ -4,7 +4,10 @@ import { SpecialtyService } from "./specialty.service";
 
 const createSpecialty = async (req:Request, res:Response) => {
     try {
-        const payload=req.body;
+        const payload={
+            ...req.body,
+            icon: req.file?.path
+        };
         const result = await SpecialtyService.createSpecialty(payload)
         res.status(201).json({
             success:true,
