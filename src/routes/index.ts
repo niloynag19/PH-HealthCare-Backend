@@ -6,6 +6,7 @@ import { DoctorRoutes } from "../app/modules/doctor/doctor.router";
 import { AdminRoutes } from "../app/modules/admin/admin.router";
 import { scheduleRoutes } from "../app/modules/schedule/schedule.router";
 import { DoctorScheduleRoutes } from "../app/modules/doctorSchedule/doctorSchedule.router";
+import { AppointmentRoutes } from "../app/modules/appointment/appointment.router";
 
 
 
@@ -17,6 +18,6 @@ router.use("/doctors",DoctorRoutes)
 router.use("/admins",AdminRoutes)
 router.use("/schedules", scheduleRoutes)
 router.use("/doctor-schedules", DoctorScheduleRoutes)
-// router.use("/appointments", AppointmentRoutes)
+router.use("/appointments", AppointmentRoutes)
 
 export const IndexRoutes=router;
