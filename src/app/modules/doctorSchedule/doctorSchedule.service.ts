@@ -7,20 +7,34 @@ import { doctorScheduleFilterableFields, doctorScheduleIncludeConfig, doctorSche
 import { ICreateDoctorSchedulePayload, IUpdateDoctorSchedulePayload } from "./doctorSchedule.interface";
 
 const createMyDoctorSchedule = async (user : IRequestUser, payload : ICreateDoctorSchedulePayload) => {
-    const doctorData=await prisma.doctor.findUniqueOrThrow({
+    const doctorData = await prisma.doctor.findUniqueOrThrow({
         where:{
-            email:user.email,
+            email : user.email
+        }
+    });
+
+    const doctorScheduleData = payload.scheduleIds.map((scheduleId) => ({
+        doctorId : doctorData.id,
+        scheduleId
+    }) )
+
+    await prisma.doctorSchedules.createMany({
+        data : doctorScheduleData
+    });
+
+    const result = await prisma.doctorSchedules.findMany({
+        where : {
+            doctorId : doctorData.id,
+            scheduleId : {
+                in : payload.scheduleIds
+            }
+        },
+        include : {
+            schedule: true
         }
     })
-
-    const doctorScheduleData= payload.scheduleIds.map((scheduleId)=>({
-        doctorId:doctorData.id,
-        scheduleId
-    }))
     
-    const result = await prisma.doctorSchedules.createMany({
-        data:doctorScheduleData,
-    })
+
     return result;
 }
 
