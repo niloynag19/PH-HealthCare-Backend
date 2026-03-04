@@ -8,6 +8,7 @@ import { validateRequest } from "../../middleware/validateRequest";
 import { SpecialtyValidation } from "./specilty.validation";
 
 
+
 const router = Router();
 router.post("/", checkAuth(Role.SUPER_ADMIN, Role.ADMIN),
 
